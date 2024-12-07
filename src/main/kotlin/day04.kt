@@ -1,38 +1,67 @@
 
-// XMAS
 private fun part1(reports: List<String>): Int {
-    val regex = Regex("XMAS|SAMX")
-//    val horizontal =regex.findAll(reports.joinToString(" ")).count()
-    val sb = StringBuilder()
-    fun checkDiagonal(word:String, startRow: Int, startCol: Int, colStep: Int): Boolean {
-        for (i in word.indices) {
-            val newRow = startRow + i
-            val newCol = startCol + i * colStep
-            if (newRow !in reports.indices || newCol !in reports.indices ||
-                reports[newRow][newCol] != word[i]) {
-                return false
+    val target = "XMAS"
+    val reversedTarget = target.reversed()
+
+    var count = 0
+    reports.forEach { row ->
+        count += countOccurrences(row, target)
+        count += countOccurrences(row, reversedTarget)
+    }
+    println("horizontal $count")
+    for (col in reports[0].indices) {
+        val columnString = reports.map { it[col] }.joinToString("")
+        count += countOccurrences(columnString, target)
+        count += countOccurrences(columnString, reversedTarget)
+    }
+    println("vertical $count")
+
+    val diagonals = extractDiagonals(reports)
+    diagonals.forEach { diagonal ->
+        count += countOccurrences(diagonal, target)
+        count += countOccurrences(diagonal, reversedTarget)
+    }
+    println("diagonal $count")
+
+    return count
+}
+
+// Helper function to count occurrences of a target word in a string
+private fun countOccurrences(line: String, target: String): Int {
+    return line.windowed(target.length).count { it == target }
+}
+
+// Helper function to extract diagonals (both directions)
+private fun extractDiagonals(grid: List<String>): List<String> {
+    val rows = grid.size
+    val cols = grid[0].length
+    val diagonals = mutableListOf<String>()
+
+    // Top-left to bottom-right diagonals
+    for (d in 0 until rows + cols - 1) {
+        val diagonal = StringBuilder()
+        for (row in 0..d) {
+            val col = d - row
+            if (row in grid.indices && col in grid[0].indices) {
+                diagonal.append(grid[row][col])
             }
         }
-        return true
+        diagonals.add(diagonal.toString())
     }
-    var diagonal = 0
-    var horizontal = 0
-    for (row in reports.indices){
-        for (col in reports[row].indices){
-            sb.append(reports[col][row])
-            if (checkDiagonal("XMAS",row, col, 1)) diagonal++
-            if (checkDiagonal("XMAS",row, col, -1)) diagonal++
-            if (checkDiagonal("SAMX",row, col, 1)) diagonal++
-            if (checkDiagonal("SAMX",row, col, -1)) diagonal++
+
+    // Top-right to bottom-left diagonals
+    for (d in 0 until rows + cols - 1) {
+        val diagonal = StringBuilder()
+        for (row in 0..d) {
+            val col = row - d + cols - 1
+            if (row in grid.indices && col in grid[0].indices) {
+                diagonal.append(grid[row][col])
+            }
         }
-        sb.append(" ")
-        horizontal += regex.findAll(reports[row]).count()
+        diagonals.add(diagonal.toString())
     }
-    val vertiacal =regex.findAll(sb.toString()).count()
 
-    println("horizontal:$horizontal vertical: $vertiacal diagonal: $diagonal")
-
-    return horizontal+vertiacal+diagonal
+    return diagonals
 }
 
 
