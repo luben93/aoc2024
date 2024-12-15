@@ -1,7 +1,12 @@
 import kotlinx.coroutines.runBlocking
 import java.time.Instant
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.asFlow
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentMap
 import kotlin.coroutines.CoroutineContext
+import kotlin.math.log10
+import kotlin.math.pow
 import kotlin.streams.asStream
 
 private fun part1(lines: List<String>): Int {
@@ -29,7 +34,7 @@ fun blinkAtStones(stoneArragnmnet: String,iterations: Int):Int{
     return 0
 }
 
-val lookup = hashMapOf(0L to listOf(1L))
+val lookup = ConcurrentHashMap(hashMapOf(0L to listOf(1L)))
 
 tailrec fun streamStones(stones: String, iterations: Int, seq: Sequence<Long> = stones
     .splitToSequence(" ").map { it.toLong() }): Long {
@@ -45,33 +50,48 @@ tailrec fun streamStones(stones: String, iterations: Int, seq: Sequence<Long> = 
     return streamStones(stones, iterations - 1, list.flatMap { it })
 }
 
-suspend fun streamStonesAsync(stones: String, iterations: Int): Long {
-    val seq = arrayListOf( stones.splitToSequence(" ").map { it.toLong() })
-    while (seq.size < iterations+1) {
-        seq.add(seq.last().chunked(1000) // Split into chunks of 1000 elements
-            .map { chunk ->
-                coroutineScope {
-                    async {
+suspend fun streamStonesAsync(stones: String, iterations: Int):Long = coroutineScope {
+    var seq = stones.splitToSequence(" ").map { it.toLong() }
+    repeat(iterations) { iteration ->
+        seq = seq.chunked(10000)
+            .flatMap { chunk ->
+//                async {
                     chunk.flatMap { stone ->
-                        lookup.computeIfAbsent(stone) {
-                            if (hasEvenNumberOfDigits(stone)) {
-                                val stoneStr = stone.toString()
-                                listOf(stoneStr.take(stoneStr.length / 2).toLong(), trimStone(stoneStr))
+                        lookup.getOrPut(stone) {
+                            val digits = log10(stone.toDouble()).toInt() + 1
+                            if (digits % 2 == 0) {
+                                val scale = 10.0.pow(digits / 2.0).toLong()
+                                listOf(stone / scale,stone % scale)
                             } else {
                                 listOf(stone * 2024)
                             }
                         }
                     }
                 }
-                }//.awaitAll()
-            }.toList().awaitAll() // Wait for all chunks to complete
-            .flatten().asSequence())
-        println("iteration: ${seq.size} count: ${seq.last().asStream().count()} time: ${Instant
-            .now()}")
+//            }.map { it.await().asSequence() }.flatten()
+//            }.toList().awaitAll().asSequence().flatten()//)
+        println("iteration: ${iteration} count: unknown time: ${Instant.now()} cache size: " +
+                "${lookup.size}")
     }
+    println("processInBatches 1000000")
+//    seq.asStream().parallel().count()
+//    seq.chunked(10000).map {
+//        async { it.count().toLong() } // Count each chunk in parallel
+//    }.toList().awaitAll().sum()
+    var size = 0L
+    seq.processInBatches(1000000) { size += it.count().toLong() }
+    return@coroutineScope size
+}
 
-    return seq.last().asStream().count()
-
+fun <T,R> Sequence<T>.processInBatches(batchSize: Int, action: (List<T>) -> R) {
+    val iterator = this.iterator()
+    while (iterator.hasNext()) {
+        val batch = mutableListOf<T>()
+        repeat(batchSize) {
+            if (iterator.hasNext()) batch.add(iterator.next())
+        }
+        action(batch)
+    }
 }
 
 fun hasEvenNumberOfDigits(number: Long): Boolean {
@@ -98,16 +118,38 @@ private fun part2(lines: List<String>): Number {
 
 private const val fileName = "Day11"
 
+fun streamStonesDepthFirstCountOptimized(stones: String, iterations: Int): Long {
+
+    fun countStones(stone: Long, remainingIterations: Int): Long {
+        if (remainingIterations == 0) return 1L
+
+        val digits = log10(stone.toDouble()).toInt() + 1
+        val list = when {
+            stone == 0L -> listOf(1L)
+            digits % 2 == 0 -> {
+                val scale = 10.0.pow(digits / 2.0).toLong()
+                listOf(stone / scale,stone % scale)
+            }
+            else -> {
+                listOf(stone * 2024)
+            }
+        }
+        return list.sumOf { countStones(it,remainingIterations -1) }
+    }
+
+    return stones.split(" ").map { it.toLong() }.sumOf { countStones(it, iterations) }
+}
+
 fun main() {
     runBlocking {
         //todo 2 lists, sort, for each find diff and sum
 //    check(part1(readInput(fileName+"_test")).println() == 55312)
 //    check(part2(readInput(fileName+"_test")).println() == 0)
-        check(streamStonesAsync(readInput(fileName + "_test").first(), 25) == 55312L)
+        check(streamStonesDepthFirstCountOptimized(readInput(fileName + "_test").first(), 25).println() == 55312L)
 
         val input = readInput(fileName)
 //    part1(input).println()
 //    part2(input).println()
-        streamStonesAsync(input.first(), 75).println()
+        streamStonesDepthFirstCountOptimized(input.first(), 45).println()
     }
 }
