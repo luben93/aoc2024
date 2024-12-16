@@ -43,16 +43,16 @@ fun countStones(cacheKey: Pair<Long, Int>): Long =
     if (cacheKey.second == 0) 1L else
         cache.getOrPut(cacheKey) {
             val digits = log10(cacheKey.first.toDouble()).toInt() + 1
-            val descendants = when {
-                cacheKey.first == 0L -> listOf(1L)
+            when {
+                cacheKey.first == 0L -> countStones(1L to cacheKey.second - 1)
                 digits % 2 == 0 -> {
                     val scale = 10.0.pow(digits / 2.0).toLong()
-                    listOf(cacheKey.first / scale, cacheKey.first % scale)
+                    countStones(cacheKey.first / scale to cacheKey.second - 1) +
+                            countStones(cacheKey.first % scale to cacheKey.second - 1)
                 }
-                else -> listOf(cacheKey.first * 2024)
+                else -> countStones(cacheKey.first * 2024 to cacheKey.second - 1)
 
             }
-            descendants.sumOf { countStones(it to cacheKey.second - 1) }
         }
 
 fun streamStonesDepthFirstCountOptimized(stones: String, iterations: Int): Long {
