@@ -39,26 +39,24 @@ private fun trimStone(stone: String) =
 private const val fileName = "Day11"
 val cache = HashMap<Pair<Long, Int>, Long>(79*2000)
 
-fun countStones(cacheKey: Pair<Long, Int>): Long =
-    if (cacheKey.second == 0) 1L else
-        cache.getOrPut(cacheKey) {
-            val digits = log10(cacheKey.first.toDouble()).toInt() + 1
-            when {
-                cacheKey.first == 0L -> countStones(1L to cacheKey.second - 1)
-                digits % 2 == 0 -> {
-                    val scale = 10.0.pow(digits / 2.0).toLong()
-                    countStones(cacheKey.first / scale to cacheKey.second - 1) +
-                            countStones(cacheKey.first % scale to cacheKey.second - 1)
-                }
-                else -> countStones(cacheKey.first * 2024 to cacheKey.second - 1)
-
+fun countStones(stone: Long, level: Int): Long =
+    if (level == 0) 1L else cache.getOrPut(stone to level) {
+        val digits = log10(stone.toDouble()).toInt() + 1
+        when {
+            stone == 0L -> countStones(1L, level - 1)
+            digits % 2 == 0 -> {
+                val scale = 10.0.pow(digits / 2).toLong()
+                countStones(stone / scale, level - 1) +
+                        countStones(stone % scale, level - 1)
             }
+            else -> countStones(stone * 2024, level - 1)
         }
+    }
 
 fun streamStonesDepthFirstCountOptimized(stones: String, iterations: Int): Long {
     val input = stones.splitToSequence(" ").map { it.toLong() }
     return measureTimedValue {
-        input.sumOf {countStones(it to iterations)  }
+        input.sumOf {countStones(it, iterations)  }
     }.also { println("cache: ${cache.size}, time: ${it}") }.value
 }
 
