@@ -119,22 +119,33 @@ private fun part2(lines: List<String>): Number {
 private const val fileName = "Day11"
 
 fun streamStonesDepthFirstCountOptimized(stones: String, iterations: Int): Long {
+    val cache = ConcurrentHashMap<Pair<Long, Int>, Long>() // Cache for (stone, remainingIterations)
 
+    // Recursive function with caching
     fun countStones(stone: Long, remainingIterations: Int): Long {
+        val cacheKey = stone to remainingIterations
+
+        // Return cached value if already computed
+        cache[cacheKey]?.let { return it }
+
         if (remainingIterations == 0) return 1L
 
         val digits = log10(stone.toDouble()).toInt() + 1
-        val list = when {
+        val descendants = when {
             stone == 0L -> listOf(1L)
             digits % 2 == 0 -> {
                 val scale = 10.0.pow(digits / 2.0).toLong()
-                listOf(stone / scale,stone % scale)
+                listOf(stone / scale, stone % scale)
             }
             else -> {
                 listOf(stone * 2024)
             }
         }
-        return list.sumOf { countStones(it,remainingIterations -1) }
+
+        // Sum up counts recursively
+        val totalCount = descendants.sumOf { countStones(it, remainingIterations - 1) }
+
+        return cache.getOrPut(cacheKey) {totalCount}
     }
 
     return stones.split(" ").map { it.toLong() }.sumOf { countStones(it, iterations) }
@@ -149,7 +160,7 @@ fun main() {
 
         val input = readInput(fileName)
 //    part1(input).println()
-//    part2(input).println()
-        streamStonesDepthFirstCountOptimized(input.first(), 45).println()
+//    part2(input).println() // to low 897227728
+        streamStonesDepthFirstCountOptimized(input.first(), 75).println()
     }
 }
